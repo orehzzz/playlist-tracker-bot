@@ -1,5 +1,8 @@
 import logging
 import configparser
+import json
+from datetime import datetime, timezone
+
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from telegram import Update
@@ -12,6 +15,8 @@ from telegram.ext import (
     filters,
 )
 
+
+# Config setup
 config = configparser.ConfigParser()
 config.read("config.ini")
 
@@ -26,6 +31,7 @@ client_credentials_manager = SpotifyClientCredentials(
     client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET
 )
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+
 
 ADD_2 = range(1)
 
@@ -75,8 +81,42 @@ add_conv_handler = ConversationHandler(
 
 async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
     # for each playlist in db check if new songs are added
-    print("Checking playlist")
-    return 0
+
+    playlist_id = "1AA52Yoauv86t380F4HL2d"  # Misc.
+    response = sp.playlist_items(
+        playlist_id,
+        fields="items.track.name, items.track.id, items.added_at",
+    )
+
+    latest_from_db = datetime(
+        2021,
+        1,
+        1,
+    )  # get the latest song from the db
+
+    # get the timestamp when the last song was added to the playlist
+    if response["items"][0]:
+        latest_from_playlist = datetime.strptime(
+            response["items"][0]["added_at"], "%Y-%m-%dT%H:%M:%SZ"
+        )
+        for track in response["items"]:
+            track_date = datetime.strptime(track["added_at"], "%Y-%m-%dT%H:%M:%SZ")
+            if track_date > latest_from_playlist:
+                latest_from_playlist = track_date
+                print(latest_from_playlist)
+
+    # convert to utc
+    latest_from_playlist.astimezone(timezone.utc)
+    latest_from_playlist.replace(tzinfo=None)
+    print(latest_from_playlist)
+
+    # compare it with the latest song in the playlist
+    if latest_from_db < latest_from_playlist:
+        print("'Playlist' has a new song!")
+        # save new latest_added to the db
+        # send a message to the users which have subscribed to this playlist
+
+    return ConversationHandler.END
 
 
 def main() -> None:
