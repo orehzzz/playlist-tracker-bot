@@ -161,3 +161,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 config.ini
+logs/debug.log.1
+logs/debug.log.2
+logs/debug.log.3

@@ -19,6 +19,14 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+debug_handler = RotatingFileHandler(
+    os.path.join(log_dir, "debug.log"), maxBytes=5 * 1024 * 1024, backupCount=3
+)
+debug_handler.setLevel(logging.DEBUG)
+debug_handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+)
+
 info_handler = RotatingFileHandler(
     os.path.join(log_dir, "info.log"), maxBytes=5 * 1024 * 1024, backupCount=3
 )
@@ -44,6 +52,10 @@ error_handler.setFormatter(
     logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 )
 
+logging.getLogger().addHandler(debug_handler)
 logging.getLogger().addHandler(info_handler)
 logging.getLogger().addHandler(warning_handler)
 logging.getLogger().addHandler(error_handler)
+
+#set logging level to info
+logging.getLogger().setLevel(logging.INFO)
