@@ -22,7 +22,7 @@ jobs:
 
       - name: Deploy files via rsync
         run: |
-          rsync -avz --exclude='.git' ./ ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }}:/home/${{ secrets.DEPLOY_USER }}/playlist-tracker-bot
+          rsync -avz --exclude='.git' ./ ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }}:/home/${{ secrets.SSH_DEPLOY_USER }}/playlist-tracker-bot
 
       - name: Restart bot
         run: |
