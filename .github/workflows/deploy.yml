@@ -1,0 +1,29 @@
+name: Deploy Telegram Bot via rsync
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy files via rsync
+        run: |
+          rsync -avz --exclude='.git' ./ ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }}:/home/${{ secrets.SSH_DEPLOY_USER }}/playlist-tracker-bot
+
+      - name: Restart bot
+        run: |
+          ssh ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }} "systemctl --user restart playlist-tracker-bot"
