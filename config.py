@@ -21,6 +21,8 @@ try:
     DB_NAME = config["Database"]["name"]
     DB_USER = config["Database"]["user"]
     DB_PASSWORD = config["Database"]["password"]
+    DB_HOST = config["Database"]["host"]
+    INTERVAL_SECONDS = int(config["Main"]["interval_seconds"])
 except KeyError as e:
     logger.error(f"Missing key in configuration file: {e}")
     raise

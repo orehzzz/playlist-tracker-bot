@@ -15,7 +15,7 @@ from telegram.ext import (
 )
 
 from database import User, Playlist, MonitoredPlaylist
-from config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, BOT_TOKEN
+from config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, BOT_TOKEN, INTERVAL_SECONDS
 
 
 # Spotify API setup
@@ -78,7 +78,9 @@ async def manage_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     # print(f"now_utc: {now_utc}")
     # print new playlist info from database
-    logging.info(f"New playlist added: {playlist.title} {playlist.url} {playlist.last_added}")
+    logging.info(
+        f"New playlist added: {playlist.title} {playlist.url} {playlist.last_added}"
+    )
 
     # check if user is already monitoring the playlist
     monitored_playlist = (
@@ -190,7 +192,7 @@ def main() -> None:
     job_queue.run_repeating(
         callback=auto_check_playlist,
         first=20,  # seconds, but could be datetime with timezone (calculate at start so that it runs at a specific time)
-        interval=60,  # seconds
+        interval=INTERVAL_SECONDS,  # seconds
     )
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)

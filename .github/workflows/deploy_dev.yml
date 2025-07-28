@@ -26,4 +26,4 @@ jobs:
 
       - name: Restart bot
         run: |
-          ssh ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }} "systemctl --user restart dev-playlist-tracker-bot"
+          ssh ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }} "systemctl --user restart dev_playlist_tracker_bot"
