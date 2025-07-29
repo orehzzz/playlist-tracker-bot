@@ -34,6 +34,8 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Use as a fallback function in handlers
     """
     logging.info(f"User {update.effective_user.id} stopped the conversation")
+    await update.message.reply_text("Stopping current dialogue.")
+
     return ConversationHandler.END
 
 
@@ -191,11 +193,41 @@ def main() -> None:
     job_queue = application.job_queue
     job_queue.run_repeating(
         callback=auto_check_playlist,
-        first=20,  # seconds, but could be datetime with timezone (calculate at start so that it runs at a specific time)
-        interval=INTERVAL_SECONDS,  # seconds
+        first=20,  # seconds
+        interval=INTERVAL_SECONDS,
     )
 
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=5001,
+        webhook_url="https://oleh.andrewyazura.com",
+        allowed_updates=Update.ALL_TYPES,
+    )
+
+
+async def post_init(application: ApplicationBuilder) -> None:
+    """Post initialization function for the bot.
+
+    Set bot's name, short/long description and commands.
+    """
+    # Comment this if you need to restart the bot several times
+    await application.bot.set_my_name("BirthdayBot")
+    await application.bot.set_my_short_description("To remember everyone's birthday!")
+    await application.bot.set_my_description(
+        "Wellcome!\n\n"
+        "This bot monitors playlists of your choise and will notify you when something new is added to them.\n\n"
+        "Notifications may take a few minutes to appear after a new song is added."
+    )
+
+    # /start is excluded from the commands list
+    await application.bot.set_my_commands(
+        [
+            ("add", "add a playlist"),
+            ("delete", "delete a playlist"),
+            ("stop", "dissrupt current dialogue"),
+        ]
+    )
 
 
 if __name__ == "__main__":
