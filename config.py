@@ -22,6 +22,9 @@ try:
     DB_USER = config["Database"]["user"]
     DB_PASSWORD = config["Database"]["password"]
     DB_HOST = config["Database"]["host"]
+    WEBHOOK_LISTEN = config["Webhook"]["listen"]
+    WEBHOOK_PORT = config["Webhook"]["port"]
+    WEBHOOK_URL = config["Webhook"]["url"]
     INTERVAL_SECONDS = int(config["Main"]["interval_seconds"])
 except KeyError as e:
     logger.error(f"Missing key in configuration file: {e}")

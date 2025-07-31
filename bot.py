@@ -15,7 +15,7 @@ from telegram.ext import (
 )
 
 from database import User, Playlist, MonitoredPlaylist
-from config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, BOT_TOKEN, INTERVAL_SECONDS
+from config import *
 
 
 # Spotify API setup
@@ -49,49 +49,52 @@ async def add_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def manage_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # handle if it is private?
-
+    """Check the provided link and save all data to the db."""
     playlist_link = update.message.text
-    # https://open.spotify.com/playlist/68QIzP5hU03BK4EIUDPt6P?si=e9084b5de0764492
-    playlist_url = playlist_link.split("/")[-1]
-    if "?" in playlist_url:
-        playlist_url = playlist_url.split("?")[0]
-    if not sp.playlist(
-        playlist_url
-    ):  # check if playlist exists, not sure if this works
+
+    # strip front and back of a link
+    try:
+        playlist_url = playlist_link.split("/")[-1]
+        if "?" in playlist_url:
+            playlist_url = playlist_url.split("?")[0]
+    except IndexError:
+        pass
+
+    # check if playlist exists on Spotify
+    try:
+        playlist_info = sp.playlist(playlist_url)
+    except spotipy.SpotifyException as e:
+        if e.code == 404:
+            await update.message.reply_text("Playlist not found (maybe it is private?)")
         await update.message.reply_text("Invalid playlist link. Please try again")
         return ADD_2
 
     # check if user in db, create if not
-    user = User.select().where(User.telegram_id == update.effective_user.id).first()
-    if not user:
-        user = User.create(telegram_id=update.effective_user.id)
+    user, created = User.get_or_create(
+        telegram_id=update.effective_user.id,
+        defaults={"name": update.effective_user.name},
+    )
+    if created:
+        logging.info(
+            f"New user added with telegram_id: {user.telegram_id}, name: {user.name}."
+        )
 
     # check if playlist in db, create if not
-    playlist = Playlist.select().where(Playlist.url == playlist_url).first()
     now_utc = datetime.now(timezone.utc).replace(microsecond=0).replace(tzinfo=None)
-
-    if not playlist:
-        playlist_info = sp.playlist(playlist_url)
-        playlist = Playlist.create(
-            url=playlist_url,
-            title=playlist_info["name"],
-            last_added=now_utc,  # hack, but it's fine for now
+    playlist, created = Playlist.get_or_create(
+        url=playlist_url,
+        title=playlist_info["name"],
+        last_added=now_utc,  # hack, but it's fine for now
+    )
+    if created:
+        logging.info(
+            f"New playlist added by {user.name}: {playlist.title}, {playlist.url}, {playlist.last_added}"
         )
-    # print(f"now_utc: {now_utc}")
-    # print new playlist info from database
-    logging.info(
-        f"New playlist added: {playlist.title} {playlist.url} {playlist.last_added}"
-    )
 
-    # check if user is already monitoring the playlist
-    monitored_playlist = (
-        MonitoredPlaylist.select()
-        .where(MonitoredPlaylist.user == user, MonitoredPlaylist.playlist == playlist)
-        .first()
-    )
-    if not monitored_playlist:
-        MonitoredPlaylist.create(user=user, playlist=playlist)
+    # create a junction
+    junction, created = MonitoredPlaylist.get_or_create(user=user, playlist=playlist)
+    if created:
+        logging.info(f"User {user.name} started monitoring playlist {playlist.name}")
 
     await update.message.reply_text(
         "Playlist added successfully! I will notify you when new songs are added to it"
@@ -138,7 +141,7 @@ async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
 
         print(response)
         # get the timestamp when the last song was added to the playlist
-        if response[-1]:
+        try:
             datetime_responce = datetime.strptime(
                 response[-1]["added_at"], "%Y-%m-%dT%H:%M:%SZ"
             )
@@ -146,6 +149,8 @@ async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
                 track_date = datetime.strptime(track["added_at"], "%Y-%m-%dT%H:%M:%SZ")
                 if track_date > datetime_responce:
                     datetime_responce = track_date
+        except IndexError:
+            pass
 
         try:
             datetime_db = playlist.last_added
@@ -185,7 +190,7 @@ async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
 def main() -> None:
     """Run the bot."""
 
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(add_conv_handler)
@@ -197,11 +202,10 @@ def main() -> None:
         interval=INTERVAL_SECONDS,
     )
 
-    # application.run_polling(allowed_updates=Update.ALL_TYPES)
     application.run_webhook(
-        listen="0.0.0.0",
-        port=5001,
-        webhook_url="https://oleh.andrewyazura.com",
+        listen=WEBHOOK_LISTEN,
+        port=WEBHOOK_PORT,
+        webhook_url=WEBHOOK_URL,
         allowed_updates=Update.ALL_TYPES,
     )
 
@@ -212,8 +216,8 @@ async def post_init(application: ApplicationBuilder) -> None:
     Set bot's name, short/long description and commands.
     """
     # Comment this if you need to restart the bot several times
-    await application.bot.set_my_name("BirthdayBot")
-    await application.bot.set_my_short_description("To remember everyone's birthday!")
+    await application.bot.set_my_name("PLaylistTrackerBot")
+    await application.bot.set_my_short_description("Monitor your favourite playlists!")
     await application.bot.set_my_description(
         "Wellcome!\n\n"
         "This bot monitors playlists of your choise and will notify you when something new is added to them.\n\n"
@@ -224,7 +228,7 @@ async def post_init(application: ApplicationBuilder) -> None:
     await application.bot.set_my_commands(
         [
             ("add", "add a playlist"),
-            ("delete", "delete a playlist"),
+            # ("delete", "delete a playlist"),
             ("stop", "dissrupt current dialogue"),
         ]
     )
