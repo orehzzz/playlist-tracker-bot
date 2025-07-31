@@ -66,7 +66,8 @@ async def manage_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except spotipy.SpotifyException as e:
         if e.code == 404:
             await update.message.reply_text("Playlist not found (maybe it is private?)")
-        await update.message.reply_text("Invalid playlist link. Please try again")
+        else:
+            await update.message.reply_text("Invalid playlist link. Please try again")
         return ADD_2
 
     # check if user in db, create if not
@@ -83,8 +84,10 @@ async def manage_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now_utc = datetime.now(timezone.utc).replace(microsecond=0).replace(tzinfo=None)
     playlist, created = Playlist.get_or_create(
         url=playlist_url,
-        title=playlist_info["name"],
-        last_added=now_utc,  # hack, but it's fine for now
+        defaults={
+            "title": playlist_info["name"],
+            "last_added": now_utc,
+        },
     )
     if created:
         logging.info(
