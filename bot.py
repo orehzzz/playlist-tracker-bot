@@ -77,7 +77,7 @@ async def manage_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     if created:
         logging.info(
-            f"New user added with telegram_id: {user.telegram_id}, name: {user.name}."
+            f"New user added with telegram_id: {user.telegram_id} - {user.name}"
         )
 
     # check if playlist in db, create if not
@@ -91,7 +91,7 @@ async def manage_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     if created:
         logging.info(
-            f"New playlist added by {user.name}: {playlist.title}, {playlist.url}, {playlist.last_added}"
+            f"New playlist added by {user.name}: {playlist.title} - {playlist.url} - {playlist.last_added}"
         )
 
     # create a junction
@@ -129,51 +129,41 @@ def request_all_tracks(playlist_id):
             results = sp.next(results)
             tracks.extend(results["items"])
     except KeyError:
-        logging.info("No more tracks found or reached the end of the playlist.")
+        logging.info(
+            f"No more tracks found or reached the end of the playlist {playlist_id}."
+        )
 
     return tracks
 
 
 async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
-
+    """Request playlists data and check when the last track was added"""
     for playlist in Playlist.select():
         playlist_url = playlist.url
-        response = request_all_tracks(
-            playlist_url
-        )  ###########returns not response format? fix!#############################################################
+        response = request_all_tracks(playlist_url)
 
-        print(response)
         # get the timestamp when the last song was added to the playlist
         try:
-            datetime_responce = datetime.strptime(
+            datetime_response = datetime.strptime(
                 response[-1]["added_at"], "%Y-%m-%dT%H:%M:%SZ"
             )
             for track in response:
                 track_date = datetime.strptime(track["added_at"], "%Y-%m-%dT%H:%M:%SZ")
-                if track_date > datetime_responce:
-                    datetime_responce = track_date
+                if track_date > datetime_response:
+                    datetime_response = track_date
         except IndexError:
             pass
 
-        try:
-            datetime_db = playlist.last_added
-        except Exception as e:
-            logging.error(f"Error: {e}")
-            return
-
-        # print(f"response: {datetime_responce}")
-        # print(f"db: {datetime_db}")
-
-        playlist_name = playlist.title or "Unknown Playlist"
+        playlist_name = playlist.title or "'Unknown Playlist'"
 
         # compare it with the latest song in the playlist
-        if datetime_db < datetime_responce:
+        if playlist.last_added < datetime_response:
             logging.info(
-                f"New songs found in {playlist_name} ({playlist_url}) since last check"
+                f"New songs found in {playlist_name} - {playlist_url} since last check"
             )
-            playlist_id = playlist.id
             # save new latest_added to the db
-            Playlist.update(last_added=datetime_responce).where(
+            playlist_id = playlist.id
+            Playlist.update(last_added=datetime_response).where(
                 Playlist.id == playlist_id
             ).execute()
             # send a message to the users which have subscribed to this playlist
@@ -184,9 +174,12 @@ async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_message(
                     user.user.telegram_id, f"Something new in {playlist_name}!"
                 )
+                logging.info(
+                    f"User {user.user.name} - {user.user.telegram_id} notified"
+                )
         else:
             logging.info(
-                f"No new songs in {playlist_name} ({playlist_url}) since last check"
+                f"No new songs in {playlist_name} - {playlist_url} since last check"
             )
 
 
@@ -201,7 +194,7 @@ def main() -> None:
     job_queue = application.job_queue
     job_queue.run_repeating(
         callback=auto_check_playlist,
-        first=20,  # seconds
+        first=20,
         interval=INTERVAL_SECONDS,
     )
 
