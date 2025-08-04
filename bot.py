@@ -14,6 +14,7 @@ from telegram.ext import (
     filters,
     CallbackQueryHandler,
 )
+import html
 
 from database import User, Playlist, MonitoredPlaylist
 from config import *
@@ -114,7 +115,7 @@ async def manage_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     await update.message.reply_text(
-        "Playlist added successfully! I will notify you when new songs are added to it"
+        f"Playlist {playlist.title} added successfully! I will notify you when new songs are added to it"
     )
     return ConversationHandler.END
 
@@ -297,9 +298,11 @@ async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
                 MonitoredPlaylist.playlist == playlist_id
             )
             for junction in junctions:
+                safe_name = html.escape(playlist_name)
                 await context.bot.send_message(
                     junction.user.telegram_id,
-                    f"Something new in [{playlist_name}](https://open.spotify.com/playlist/{playlist_url})",
+                    f'Something new in <a href="https://open.spotify.com/playlist/{playlist_url}">{safe_name}</a>!',
+                    parse_mode="HTML",
                 )
                 logging.info(
                     f"User {junction.user.name} - {junction.user.telegram_id} notified"
@@ -341,13 +344,13 @@ async def post_init(application: ApplicationBuilder) -> None:
     Set bot's name, short/long description and commands.
     """
     # Comment this if you need to restart the bot several times
-    await application.bot.set_my_name("PLaylistTrackerBot")
-    await application.bot.set_my_short_description("Monitor your favourite playlists!")
-    await application.bot.set_my_description(
-        "Wellcome!\n\n"
-        "This bot monitors playlists of your choise and will notify you when something new is added to them.\n\n"
-        "Notifications may take a few minutes to appear after a new song is added."
-    )
+    # await application.bot.set_my_name("PLaylistTrackerBot")
+    # await application.bot.set_my_short_description("Monitor your favourite playlists!")
+    # await application.bot.set_my_description(
+    #     "Wellcome!\n\n"
+    #     "This bot monitors playlists of your choise and will notify you when something new is added to them.\n\n"
+    #     "Notifications may take a few minutes to appear after a new song is added."
+    # )
 
     # /start is excluded from the commands list
     await application.bot.set_my_commands(
