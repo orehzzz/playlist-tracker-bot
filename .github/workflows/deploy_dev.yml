@@ -1,9 +1,9 @@
-name: Deploy Telegram Bot via rsync
+name: Deploy from dev via rsync for testing
 
 on:
   push:
     branches:
-      - main
+      - dev
 
 jobs:
   deploy:
@@ -22,8 +22,8 @@ jobs:
 
       - name: Deploy files via rsync
         run: |
-          rsync -avz --exclude='.git' ./ ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }}:/home/${{ secrets.SSH_DEPLOY_USER }}/playlist-tracker-bot
+          rsync -avz --exclude='.git' ./ ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }}:/home/${{ secrets.SSH_DEPLOY_USER }}/dev-playlist-tracker-bot
 
       - name: Restart bot
         run: |
-          ssh ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }} "systemctl --user restart playlist_tracker_run"
+          ssh ${{ secrets.SSH_DEPLOY_USER }}@${{ secrets.SSH_IP }} "systemctl --user restart dev_playlist_tracker_run"
