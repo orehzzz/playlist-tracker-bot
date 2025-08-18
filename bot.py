@@ -329,13 +329,13 @@ def main() -> None:
         interval=INTERVAL_SECONDS,
     )
 
-    application.run_webhook(
-        listen=WEBHOOK_LISTEN,
-        port=WEBHOOK_PORT,
-        webhook_url=WEBHOOK_URL,
-        allowed_updates=Update.ALL_TYPES,
-    )
-    # application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # application.run_webhook(
+    #     listen=WEBHOOK_LISTEN,
+    #     port=WEBHOOK_PORT,
+    #     webhook_url=WEBHOOK_URL,
+    #     allowed_updates=Update.ALL_TYPES,
+    # )
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 async def post_init(application: ApplicationBuilder) -> None:
