@@ -225,7 +225,7 @@ delete_conv_handler = ConversationHandler(
 )
 
 
-def request_all_tracks(playlist_url):
+def _request_all_tracks(playlist_url) -> list:
     """Get all tracks via spotify's API and return them as a list
 
     If request failed returns `False` and deletes playlist from db"""
@@ -261,7 +261,7 @@ async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
     """Request playlists data and check when the last track was added"""
     for playlist in Playlist.select():
         playlist_url = playlist.url
-        response = request_all_tracks(playlist_url)
+        response = _request_all_tracks(playlist_url)
 
         # skip if bad response
         if not response:
@@ -313,12 +313,73 @@ async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
             )
 
 
+def _time_diff_text(dt: datetime) -> str:
+    """Compare input with current time and return difference"""
+    now = datetime.now()
+    diff = now - dt
+
+    days = diff.days
+    seconds = diff.seconds
+
+    years = days // 365
+    months = days // 30
+    weeks = days // 7
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+
+    if years > 0:
+        return f"{years} year{'s' if years > 1 else ''} ago"
+    elif months > 0:
+        return f"{months} month{'s' if months > 1 else ''} ago"
+    elif weeks > 0:
+        return f"{weeks} week{'s' if weeks > 1 else ''} ago"
+    elif days > 0:
+        return f"{days} day{'s' if days > 1 else ''} ago"
+    elif hours > 0:
+        return f"{hours} hour{'s' if hours > 1 else ''} ago"
+    elif minutes > 0:
+        return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+    else:
+        return "just now"
+
+
+async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a list of birthdays to the user"""
+    logging.info(
+        f"Sending a list of playlists to user {update.effective_user.name} - {update.effective_user.id}"
+    )
+
+    today = datetime.now()
+
+    user = User.get(User.telegram_id == update.effective_user.id)
+    junctions = MonitoredPlaylist.select().where(MonitoredPlaylist.user == user)
+
+    if not junctions:
+        logging.info(
+            f"User {update.effective_user.name} - {update.effective_user.id} tried to use /list, but they don't have any playlists"
+        )
+        await update.message.reply_text(
+            "You don’t have any playlists yet. Add one with /add."
+        )
+        return
+
+    response = "_Your list: (name - last modified)_\n"
+    for junction in junctions:
+        response += f"• {junction.playlist.title} --- {_time_diff_text(junction.playlist.last_added)}\n"
+
+    logging.info(
+            f"User {update.effective_user.name} - {update.effective_user.id} has received a list"
+        )
+    await update.message.reply_text(response, parse_mode="Markdown")
+
+
 def main() -> None:
     """Run the bot."""
 
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("list", list))
     application.add_handler(add_conv_handler)
     application.add_handler(delete_conv_handler)
 
@@ -357,7 +418,8 @@ async def post_init(application: ApplicationBuilder) -> None:
         [
             ("add", "add a playlist"),
             ("delete", "delete a playlist"),
-            ("stop", "dissrupt current dialogue"),
+            ("list", "add a playlist"),
+            ("stop", "disrupt current dialogue"),
         ]
     )
 

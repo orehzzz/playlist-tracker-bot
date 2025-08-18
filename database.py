@@ -35,7 +35,7 @@ class Playlist(BaseModel):
     url = TextField(unique=True)  # Playlist URL or unique identifier
     title = CharField(max_length=255, null=True)  # Playlist title
     last_added = DateTimeField(
-        formats="%Y-%m-%d %H:%M:%S", null=True
+        formats="%Y-%m-%d %H:%M:%S"
     )  # Timestamp of the last change or addition to the playlist
 
 
