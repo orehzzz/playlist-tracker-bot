@@ -259,58 +259,87 @@ def _request_all_tracks(playlist_url) -> list:
 
 async def auto_check_playlist(context: ContextTypes.DEFAULT_TYPE):
     """Request playlists data and check when the last track was added"""
-    for playlist in Playlist.select():
-        playlist_url = playlist.url
-        response = _request_all_tracks(playlist_url)
+    # for playlist in Playlist.select():
+    #     playlist_url = playlist.url
+    #     response = _request_all_tracks(playlist_url)
 
-        # skip if bad response
-        if not response:
-            continue
+    #     # skip if bad response
+    #     if not response:
+    #         continue
 
-        # get the timestamp when the last song was added to the playlist
-        try:
-            datetime_response = datetime.strptime(
-                response[-1]["added_at"], "%Y-%m-%dT%H:%M:%SZ"
-            )
-            for track in response:
-                track_date = datetime.strptime(track["added_at"], "%Y-%m-%dT%H:%M:%SZ")
-                if track_date > datetime_response:
-                    datetime_response = track_date
-        except IndexError:
-            pass
+    #     # get the timestamp when the last song was added to the playlist
+    #     try:
+    #         datetime_response = datetime.strptime(
+    #             response[-1]["added_at"], "%Y-%m-%dT%H:%M:%SZ"
+    #         )
+    #         for track in response:
+    #             track_date = datetime.strptime(track["added_at"], "%Y-%m-%dT%H:%M:%SZ")
+    #             if track_date > datetime_response:
+    #                 datetime_response = track_date
+    #     except IndexError:
+    #         pass
 
-        playlist_name = playlist.title or "'Unknown Playlist'"
+    total = sp.playlist("68QIzP5hU03BK4EIUDPt6P", fields="tracks(total)")["tracks"][
+        "total"
+    ]
 
-        # compare it with the latest song in the playlist
-        if playlist.last_added < datetime_response:
-            logging.info(
-                f"New songs found in {playlist_name} - {playlist_url} since last check"
-            )
+    last_track = sp.playlist_items(
+        "68QIzP5hU03BK4EIUDPt6P",
+        offset=total - 1,  # jump directly to the last item
+        limit=1,
+        fields="items.track.name, items.track.id, items.added_at",
+    )
 
-            # save new latest_added to the db
-            playlist_id = playlist.id
-            Playlist.update(last_added=datetime_response).where(
-                Playlist.id == playlist_id
-            ).execute()
+    print(last_track)
+    # playlist_name = playlist.title or "'Unknown Playlist'"
 
-            # send a message to the users which have subscribed to this playlist
-            junctions = MonitoredPlaylist.select().where(
-                MonitoredPlaylist.playlist == playlist_id
-            )
-            for junction in junctions:
-                safe_name = html.escape(playlist_name)
-                await context.bot.send_message(
-                    junction.user.telegram_id,
-                    f'Something new in <a href="https://open.spotify.com/playlist/{playlist_url}">{safe_name}</a>!',
-                    parse_mode="HTML",
-                )
-                logging.info(
-                    f"User {junction.user.name} - {junction.user.telegram_id} notified"
-                )
-        else:
-            logging.info(
-                f"No new songs in {playlist_name} - {playlist_url} since last check"
-            )
+    # compare it with the latest song in the playlist
+    # if playlist.last_added < datetime_response:
+    #     logging.info(
+    #         f"New songs found in {playlist_name} - {playlist_url} since last check"
+    #     )
+
+    #     # save new latest_added to the db
+    #     playlist_id = playlist.id
+    #     Playlist.update(last_added=datetime_response).where(
+    #         Playlist.id == playlist_id
+    #     ).execute()
+
+    #     # send a message to the users which have subscribed to this playlist
+    #     junctions = MonitoredPlaylist.select().where(
+    #         MonitoredPlaylist.playlist == playlist_id
+    #     )
+    #     for junction in junctions:
+    #         safe_name = html.escape(playlist_name)
+    #         await context.bot.send_message(
+    #             junction.user.telegram_id,
+    #             f'Something new in <a href="https://open.spotify.com/playlist/{playlist_url}">{safe_name}</a>!',
+    #             parse_mode="HTML",
+    #         )
+    #         logging.info(
+    #             f"User {junction.user.name} - {junction.user.telegram_id} notified"
+    #         )
+    # else:
+    #     logging.info(
+    #         f"No new songs in {playlist_name} - {playlist_url} since last check"
+    #     )
+
+async def check_playlist(context: ContextTypes.DEFAULT_TYPE, id):
+    #if there is variable with retry-after variable (it should be datetime) - skip this iteration
+
+    # select entry with oldest "last checked"
+    
+    # request snapshot id
+    requested_snapshot = sp.playlist("68QIzP5hU03BK4EIUDPt6P", fields="snapshot_id")
+    #compare with saved snapshot
+    playlist = Playlist.get_by_id(id)
+
+
+    if requested_snapshot != playlist.snapshot_id:
+        #update db entry
+
+        #notify users
+
 
 
 def _time_diff_text(dt: datetime) -> str:
@@ -368,8 +397,8 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response += f"• {junction.playlist.title} --- {_time_diff_text(junction.playlist.last_added)}\n"
 
     logging.info(
-            f"User {update.effective_user.name} - {update.effective_user.id} has received a list"
-        )
+        f"User {update.effective_user.name} - {update.effective_user.id} has received a list"
+    )
     await update.message.reply_text(response, parse_mode="Markdown")
 
 
@@ -385,7 +414,7 @@ def main() -> None:
 
     job_queue = application.job_queue
     job_queue.run_repeating(
-        callback=auto_check_playlist,
+        callback=check_playlist,
         first=20,
         interval=INTERVAL_SECONDS,
     )
